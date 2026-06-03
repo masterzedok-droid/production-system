@@ -4,26 +4,20 @@ const { Pool } = require('pg');
 const app = express();
 app.use(express.json());
 
-// ПРОВЕРКА: есть ли переменная окружения
-if (!process.env.DATABASE_URL) {
-    console.error('❌ ОШИБКА: DATABASE_URL не найдена!');
-    console.log('Переменные окружения:', Object.keys(process.env));
-}
-
-// Подключение к базе данных
+// Подключение к БД
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
     ssl: { rejectUnauthorized: false }
 });
 
-// ===== API (без изменений) =====
+// ===== API =====
 
 app.get('/api/orders', async (req, res) => {
     try {
         const result = await pool.query('SELECT * FROM orders ORDER BY id DESC');
         res.json(result.rows);
     } catch (err) {
-        console.error('Ошибка /api/orders:', err.message);
+        console.error('Ошибка:', err.message);
         res.json([]);
     }
 });
@@ -64,7 +58,6 @@ app.put('/api/order/:number/complete', async (req, res) => {
     }
 });
 
-// ===== ВЕБ-СТРАНИЦА =====
 app.get('/', (req, res) => {
     res.send(`
         <!DOCTYPE html>
@@ -84,13 +77,11 @@ app.get('/', (req, res) => {
         </head>
         <body>
             <h1>🏭 ПК НЭЗ - Производственная система</h1>
-            
             <div class="card">
                 <h3>📋 Список заказов</h3>
                 <div id="ordersList"></div>
                 <button onclick="loadOrders()">Обновить</button>
             </div>
-            
             <div class="card">
                 <h3>➕ Новый заказ</h3>
                 <input type="text" id="number" placeholder="Номер заказа">
@@ -100,32 +91,26 @@ app.get('/', (req, res) => {
                 <button onclick="createOrder()">Создать</button>
                 <div id="message"></div>
             </div>
-            
             <div class="card">
                 <h3>🔍 Поиск заказа</h3>
                 <input type="text" id="searchNumber" placeholder="Номер">
                 <button onclick="searchOrder()">Найти</button>
                 <div id="searchResult"></div>
             </div>
-            
             <script>
                 async function loadOrders() {
                     const response = await fetch('/api/orders');
                     const orders = await response.json();
-                    
                     let html = '';
                     if (orders.length === 0) {
                         html = '<div class="order-item">Нет заказов</div>';
                     } else {
                         orders.forEach(o => {
-                            const statusIcon = o.status === 'active' ? '🟢' : '✅';
-                            const statusText = o.status === 'active' ? 'Активен' : 'Завершён';
-                            html += '<div class="order-item">' + statusIcon + ' ' + o.number + ' - ' + o.product + ' (' + o.quantity + ' шт) - ' + statusText + '</div>';
+                            html += '<div class="order-item">🟢 ' + o.number + ' - ' + (o.product || '—') + ' (' + o.quantity + ' шт)</div>';
                         });
                     }
                     document.getElementById('ordersList').innerHTML = html;
                 }
-                
                 async function createOrder() {
                     const order = {
                         number: document.getElementById('number').value,
@@ -133,18 +118,15 @@ app.get('/', (req, res) => {
                         product: document.getElementById('product').value,
                         quantity: parseInt(document.getElementById('quantity').value)
                     };
-                    
                     if (!order.number || !order.customer || !order.product) {
                         document.getElementById('message').innerHTML = '<span class="error">❌ Заполните все поля!</span>';
                         return;
                     }
-                    
                     const response = await fetch('/api/order', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(order)
                     });
-                    
                     const result = await response.json();
                     if (result.success) {
                         document.getElementById('message').innerHTML = '<span class="success">✅ Заказ создан!</span>';
@@ -157,25 +139,16 @@ app.get('/', (req, res) => {
                         document.getElementById('message').innerHTML = '<span class="error">❌ ' + result.error + '</span>';
                     }
                 }
-                
                 async function searchOrder() {
                     const number = document.getElementById('searchNumber').value;
                     const response = await fetch('/api/order/' + number);
                     const order = await response.json();
-                    
                     if (order.error) {
                         document.getElementById('searchResult').innerHTML = '<span class="error">❌ ' + order.error + '</span>';
                     } else {
-                        document.getElementById('searchResult').innerHTML = 
-                            '<div class="success">✅ Заказ найден!</div>' +
-                            '🔢 Номер: ' + order.number + '<br>' +
-                            '👤 Заказчик: ' + order.customer + '<br>' +
-                            '📦 Изделие: ' + order.product + '<br>' +
-                            '🔢 Количество: ' + order.quantity + ' шт<br>' +
-                            '📊 Статус: ' + (order.status === 'active' ? '🟢 Активен' : '✅ Завершён');
+                        document.getElementById('searchResult').innerHTML = '✅ Заказ найден!<br>🔢 ' + order.number + '<br>👤 ' + order.customer + '<br>📦 ' + order.product;
                     }
                 }
-                
                 loadOrders();
             </script>
         </body>
@@ -183,9 +156,7 @@ app.get('/', (req, res) => {
     `);
 });
 
-// Запуск сервера
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-    console.log(`🚀 Сервер с БД запущен на порту ${PORT}`);
-    console.log(`DATABASE_URL: ${process.env.DATABASE_URL ? '✅ установлена' : '❌ не найдена'}`);
+    console.log(`🚀 Сервер запущен на порту ${PORT}`);
 });
