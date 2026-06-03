@@ -4,26 +4,30 @@ const { Pool } = require('pg');
 const app = express();
 app.use(express.json());
 
-/// Подключение к базе данных на Railway
+// ПРОВЕРКА: есть ли переменная окружения
+if (!process.env.DATABASE_URL) {
+    console.error('❌ ОШИБКА: DATABASE_URL не найдена!');
+    console.log('Переменные окружения:', Object.keys(process.env));
+}
+
+// Подключение к базе данных
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
     ssl: { rejectUnauthorized: false }
 });
 
-// ===== API =====
+// ===== API (без изменений) =====
 
-// Получить все заказы
 app.get('/api/orders', async (req, res) => {
     try {
         const result = await pool.query('SELECT * FROM orders ORDER BY id DESC');
         res.json(result.rows);
     } catch (err) {
-        console.error(err);
+        console.error('Ошибка /api/orders:', err.message);
         res.json([]);
     }
 });
 
-// Получить один заказ по номеру
 app.get('/api/order/:number', async (req, res) => {
     try {
         const result = await pool.query('SELECT * FROM orders WHERE number = $1', [req.params.number]);
@@ -37,7 +41,6 @@ app.get('/api/order/:number', async (req, res) => {
     }
 });
 
-// Создать новый заказ
 app.post('/api/order', async (req, res) => {
     try {
         const { number, customer, product, quantity } = req.body;
@@ -52,7 +55,6 @@ app.post('/api/order', async (req, res) => {
     }
 });
 
-// Завершить заказ
 app.put('/api/order/:number/complete', async (req, res) => {
     try {
         await pool.query(`UPDATE orders SET status = 'completed' WHERE number = $1`, [req.params.number]);
@@ -174,7 +176,6 @@ app.get('/', (req, res) => {
                     }
                 }
                 
-                // Загружаем заказы при открытии страницы
                 loadOrders();
             </script>
         </body>
@@ -183,6 +184,8 @@ app.get('/', (req, res) => {
 });
 
 // Запуск сервера
-app.listen(3000, () => {
-    console.log('🚀 Сервер с БД запущен на порту 3000');
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+    console.log(`🚀 Сервер с БД запущен на порту ${PORT}`);
+    console.log(`DATABASE_URL: ${process.env.DATABASE_URL ? '✅ установлена' : '❌ не найдена'}`);
 });
