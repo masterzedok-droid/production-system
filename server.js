@@ -4,7 +4,7 @@ const { Pool } = require('pg');
 const app = express();
 app.use(express.json());
 
-// Подключение к базе данных на Railway
+/// Подключение к базе данных на Railway
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
     ssl: { rejectUnauthorized: false }
